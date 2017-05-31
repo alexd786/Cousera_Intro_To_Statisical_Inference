@@ -1,0 +1,199 @@
+---
+title: "Exploring the BRFSS data"
+output:
+  html_document:
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+  pdf_document: default
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+The data that makes up the BRFSS survey is a collection of health related questions and behaviors conducted each year. The survey relies on random dialing to contact participants. Because the survey is in theory a random sample of the population based on this collection technique, the results of this survey are generalzieable to the larger population. 
+
+One potential bais of the is non-response. We are not aware of people who are contacted and did not choose to take part in the survey. This might cause a sampling biais in favor of people willing to give details about their health. We are not certain that this bias has occured, or what the efffects of this would be if it inded has happend. 
+
+Since the survey does not involve any treatment of the respondents, there is no random assignment of the participants. Because of this, we can not consider this a causal study. 
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+Is Body Mass Index related to time spent exercising per week? Body Mass Index (BMI) is a measure of weight in relation to height and can be used to classify someone as underweight, normal weight, over weight, and obese. Time spent exercising is generally thought to help an individual lose weight. In order to see if there is a possible relation between the two, we can look at each classification bucket of BMI against the average time spent exercising each week. 
+
+**Research question 2:**
+Does regular alcohol consumption have any relation to if a person has had a stroke? Is there a difference between this relation for males and females? Alcohol is generally seen as a detriment to health if used regularly. In order to see if consuming alcohol is related to stroke, we can look at people who have consumed alcohol in the past 30 days and if they have had a stroke. We are assuming that people who have consumed alcohol in the past 30 days consumed it on a regular basis prior to their stroke. We can also see if there is a difference between males and females who have had strokes to see if alcohol is more related for one gender or not.
+
+**Research question 3:**
+Does having health coverage have any relation on how many total days in a month a person considers themselves to be in bad health? Does the total days also related to their vegetable intake? In general, health coverage is seen as having a positive effective on a persons health. People can pay more easily for receiving care and not having enough money can limit what a person can spend on health care. Vegetables are also seen as having positive effects on health. In order to see if there are relations to how many days a person is health, we can look at if a person has health care. We can also look at if people consume at least one vegetable per day.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+##Research quesion 1
+```{r }
+## Add pa1min_f variable. Changing this to a float from integer since median did not calculate initially as an integer.
+brfss2013 <- brfss2013 %>% mutate(pa1min_f = (1.0*pa1min_))
+
+##Summary statistics for mean and median total minutes per week of excercise grouped by BMI buckets
+brfss2013 %>%
+  filter(X_bmi5cat!='NA') %>%
+  group_by(X_bmi5cat) %>%
+  summarise(mean_ex = mean(pa1min_f, na.rm=TRUE), median_ex= median(pa1min_f, na.rm=TRUE),
+  n = n())
+
+#bar graph of mean for each BMI Bucket
+brfss2013 %>% 
+  filter(X_bmi5cat!='NA') %>%
+  group_by(X_bmi5cat) %>%
+  summarise(mean_ex = mean(pa1min_f, na.rm=TRUE)) %>%
+ggplot(aes(x=X_bmi5cat, y=mean_ex)) +
+  geom_bar(stat="identity") +
+xlab("BMI Category") + ylab("Mean Total Excercise")
+```
+
+Based on the summary statistics, the mean value for each BMI bucket decreases as the total BMI value increases. This means that the underweight bucket exercises the most each week, the normal weight exercises the second most, etc. 
+
+Using the median, this trend is close to the same, but the median values for the underweight and normal weight are the same. The overweight and obese follow the descending trend that we saw with the mean.
+```{r }
+#bar graph of median for each BMI Bucket
+brfss2013 %>% 
+  filter(X_bmi5cat!='NA') %>%
+  group_by(X_bmi5cat) %>%
+  summarise(mean_ex = median(pa1min_f, na.rm=TRUE)) %>%
+ggplot(aes(x=X_bmi5cat, y=mean_ex)) +
+  geom_bar(stat="identity") +
+xlab("BMI Category") + ylab("Mean Total Excercise")
+```
+
+The bar graphs of each of these summary statistics show this decrease as BMI increses. 
+
+Although we can not say for certain that that minutes exercising causes the differences in BMI, it appears there might be a relation between the BMI buckets and minutes exercising each week. We do not have enough information to know if the differences are significant between the groups.  
+
+
+
+##Research quesion 2:
+
+```{r }
+##Factor variables 
+brfss2013$drnkany5 <- as.factor(brfss2013$drnkany5)
+brfss2013$cvdstrk3 <- as.factor(brfss2013$cvdstrk3)
+brfss2013$sex <- as.factor(brfss2013$sex)
+
+##Summary statistic. Count of total grouped by sex, haveing a stroke, and having consumed alcohol in past 30 days. Filter out NA rows.
+brfss2013 %>% filter(sex!='NA') %>%
+filter(drnkany5!='NA') %>% 
+filter(cvdstrk3!='NA') %>%
+group_by(sex,cvdstrk3,drnkany5) %>%
+summarise(total = n())
+```
+
+Based on the summary statistics, we can see that people who have strokes more have a greater ratio of people who have consumed alcohol in the past 30 days. This is more pronounced for females than males. 
+
+```{r }
+##Bar charts with count of total people on Y axis and people who have strokes on the X axis split out by alcohol consumers. Also two graphs for male/female. 
+brfss2013 %>% 
+filter(sex!='NA') %>% 
+filter(drnkany5!='NA') %>% 
+filter(cvdstrk3!='NA') %>%
+ggplot(aes(x=cvdstrk3, fill = drnkany5)) +
+  geom_bar(position="dodge") + facet_wrap( ~ sex, ncol=2) +
+scale_fill_hue(name="Alcholic Beverage in Past 30 Says") +
+xlab("Has Had a Stroke")
+```  
+
+Based on the bar graph, we can see that for both genders, for people who have strokes, there are more people who have consumed alcohol in the past 30 days than people who not consumed any.
+
+Based on the chart and the summary statistics, we can see that there is some relation between consuming alcohol in the past 30 days and if someone had a stroke. Because we do not understand other factors that could affect stroke, we can not draw further conclusions that alcohol consumption caused the stroke. We also can not prove that there is a significant difference in alcohol consumption between people who have a stroke and people who have not have a stroke.
+
+
+
+##Research quesion 3:
+```{r }
+##Clean data so non responses/unkown values are listed as NA.
+
+##Add new variable, change 88 to 0 for physhlth.
+brfss2013 <- brfss2013 %>%
+  mutate(physhlth_1 = ifelse(physhlth == "88", 0, physhlth))
+
+##Add new variable, change 77 to NA for physhlth.
+brfss2013 <- brfss2013 %>%
+  mutate(physhlth_2 = ifelse(physhlth_1 == "77", "NA", physhlth_1))
+
+##Add new variable, change 88 to NA for physhlth.
+brfss2013 <- brfss2013 %>%
+  mutate(physhlth_3 = ifelse(physhlth_2 == "99", "NA", physhlth_2))
+
+##Add new variable, change BLANK to NA for physhlth.
+brfss2013 <- brfss2013 %>%
+  mutate(physhlth_4 = ifelse(physhlth_3 == "BLANK", "NA", physhlth_3))
+
+
+
+## Change names of vegtable consumption variables to shorter lenght.
+brfss2013 <- brfss2013 %>%
+  mutate(X_veglt2 = ifelse(X_veglt1 == "Consumed vegetables one or more times per day", "Consumed", X_veglt1))
+
+brfss2013 <- brfss2013 %>%
+  mutate(X_veglt3 = ifelse(X_veglt2 == "2", "NoConsume", X_veglt2))
+
+##Change Health Coverage Variable names
+brfss2013 <- brfss2013 %>%
+  mutate(hlthpln2 = ifelse(hlthpln1 == "Yes", "Health Coverage", hlthpln1))
+
+brfss2013 <- brfss2013 %>%
+  mutate(hlthpln3 = ifelse(hlthpln2 == "2", "No Health Coverage", hlthpln2))
+
+
+##Summary Statistics
+brfss2013 %>% 
+filter(hlthpln3!='NA') %>%
+filter(X_veglt3!='NA') %>%
+group_by(hlthpln3,X_veglt3) %>%
+  summarise(mean_pf = mean(physhlth_4, na.rm=TRUE),
+  n = n())
+```
+
+Based on the summary statistics, it appears that people with health coverage who consume vegetables have the fewest days of bad health a month. The group who has the most days of bad health are people with insurance and do not consume vegtables.
+```{r }
+##Bar Chart
+brfss2013 %>% 
+filter(hlthpln1!='NA') %>%
+filter(X_veglt3!='NA') %>%
+group_by(hlthpln3,X_veglt3) %>%
+summarise(mean_pf = mean(physhlth_4, na.rm=TRUE),n = n()) %>%
+ggplot(aes(x=X_veglt3, y =mean_pf, fill=X_veglt3)) +
+geom_bar(position="dodge",stat="identity",size=.9) + facet_wrap( ~ hlthpln3, ncol=2) +
+xlab("Consummed Veggies Once A Day") + ylab("Mean Total Days Bad Pysical Health") +
+scale_fill_hue(name="Consummed Veggies Once A Days")
+```
+
+
+Based on the bar chart and summary statistics, we can see that for both groups of having health coverage and not having health coverage, the group that consumes vegetables spends fewer days in bad health. Having health coverage seems to be more highly related to good health only for the group that consumes vegetables since the group that has health coverage and does not consume vegetables spends the most days in bad health of any group. 
+
+Although it seems that consuming vegetables and possibly having health coverage are related to being in good health, we can not assume these cause better health. One reason is that healthy people might be more inclined to eat vegetables rather than vegetables causing good health. 
+
+
